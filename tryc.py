@@ -1,6 +1,6 @@
 import socket
 import threading
-k=0
+
 def receive(con):
     while 1:
         data=con.recv(1024)
