@@ -175,6 +175,8 @@ root = tk.Tk()
 root.title("GetChat")
 root.geometry("900x600")
 root.configure(bg="black")
+root.minsize(width=900,height=600)
+root.maxsize(width=900,height=600)
 
 # widget
 canvas = tk.Canvas(root, width=900, height=600, bg="black")
