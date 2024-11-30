@@ -11,7 +11,7 @@ def receive(con):
 
 def start_client():
     client=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    client.connect(('localhost',9099))
+    client.connect(('192.168.0.157',65432))
     threading.Thread(target=receive,args=(client,)).start()
     while True:
         message=input("Send:")

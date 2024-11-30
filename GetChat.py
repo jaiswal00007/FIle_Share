@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog
 import random
 import os
+import ipaddress
 
 clients = []
 
@@ -58,46 +59,77 @@ def handle_client(conn, addr):
 def start_server():
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind(('localhost', 65432))
+        server_socket.bind(('0.0.0.0', 65432))
         server_socket.listen()
         print("Server started, waiting for connections...")
 
         while True:
-            conn, addr = server_socket.accept()
-            threading.Thread(target=handle_client, args=(conn, addr)).start()
+            try:
+                conn, addr = server_socket.accept()
+                threading.Thread(target=handle_client, args=(conn, addr)).start()
+            except KeyboardInterrupt:
+                print("Server shutting down...")
+                for client in clients:
+                    client.sendall("Server is shutting down.\n".encode())
+                    client.close()
+                server_socket.close()
+                break
     except Exception as e:
         print(f"Error: {e}")
         return -1
 
+
 def start_client():
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('localhost', 65432))
+    k=ip.get().strip()
+    if(k=="Enter IP Address..." or not k):
+        k='127.0.0.1'
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # client_socket.settimeout(5)  # timeout of 5 seconds
+        client_socket.connect((k, 65432))
+    except (socket.timeout, ConnectionRefusedError) as e:
+        return -1
+    except socket.gaierror as e:
+        return -1
+    except Exception as e:
+        return -1
     return client_socket
+def safe_update_chat_display(chat_display, message):
+    if chat_display.winfo_exists():  # chk widget exists
+        chat_display.config(state=tk.NORMAL)
+        chat_display.insert(tk.END, message)
+        chat_display.config(state=tk.DISABLED)
+        chat_display.yview(tk.END)
 
 def show_overlay(sock):
     overlay = tk.Frame(root, bg="grey")
     overlay.place(x=0, y=0, relwidth=1, relheight=1)
-    # Chat display
+    # display-Chat
     chat_display = tk.Text(overlay, width=70, height=20, wrap=tk.WORD, bg="black", fg="white", font=("Arial", 12), state=tk.DISABLED)
     chat_display.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
-    # function to display received messages
+    # display received messages
     def receive_messages(sock):
-        while True:
-            try:
+        try:
+            while True:
                 data = sock.recv(1024)
                 if not data:
-                    break
-                chat_display.config(state=tk.NORMAL)
-                chat_display.insert(tk.END, f"Received: {data.decode()}\n")  # Display received message
-                chat_display.config(state=tk.DISABLED)
-                chat_display.yview(tk.END)
-            except ConnectionResetError:
-                break
+                    raise ConnectionResetError("No data received. Disconnecting.")
+                message = f"Received: {data.decode()}\n"
+                root.after(0, safe_update_chat_display, chat_display, message)
+        except (ConnectionResetError, OSError):
+            root.after(0, safe_update_chat_display, chat_display, "Disconnected from server.\n")
+        finally:
+            root.after(0, overlay.destroy)
+            sock.close()
+            print("Client disconnected.")
+
+
+
 
     # used seperate thread for receiving messages
     threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
 
-    # Frame to take user input
+    # to take user input
     input_frame = tk.Frame(overlay, bg="grey")
     input_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -116,7 +148,7 @@ def show_overlay(sock):
         if message:
             sock.sendall(message.encode())  # used for Sending message to server
             chat_display.config(state=tk.NORMAL)
-            chat_display.insert(tk.END, f"You: {message}\n")  # Display 
+            chat_display.insert(tk.END, f"You: {message}\n")  # display 
             chat_display.config(state=tk.DISABLED)
             chat_display.yview(tk.END)
             user_input.delete(0, tk.END)
@@ -126,19 +158,29 @@ def show_overlay(sock):
             file_size = os.path.getsize(file_path)
             file_name = os.path.basename(file_path)
 
-            # Notify the server about the file
-            sock.sendall(f"FILE {file_size} {file_name}".encode())  # used to notify server about file size & name
-
-            # Send the file content in chunks
+            # notify the server about the file
+            sock.sendall(f"FILE {file_size} {file_name}".encode())  # used to notify server about file info
+            # Send in chunks
             with open(file_path, "rb") as file:
                 while chunk := file.read(1024):
-                    sock.sendall(chunk)  # Send each chunk
+                    sock.sendall(chunk)  # each chunk one by one
 
-            # Display file sent in the chat window
+            # to display file sent
             chat_display.config(state=tk.NORMAL)
-            chat_display.insert(tk.END, f"You: File sent: {file_name}\n")  # Display file send message
+            chat_display.insert(tk.END, f"You: File sent: {file_name}\n")  # file send message 
             chat_display.config(state=tk.DISABLED)
             chat_display.yview(tk.END)
+
+    # to close client upon exiting 'X'
+    def close_client(sock, overlay):
+        try:
+            sock.close()
+        except:
+            pass
+        if overlay.winfo_exists():
+            overlay.destroy()
+        print("Client disconnected.")
+
 
     send_button = tk.Button(input_frame, text="Send", command=send_message, bg="white", fg="black", font=("Arial", 12,"bold"))
     send_button.pack(side=tk.RIGHT, padx=10, pady=10)
@@ -149,24 +191,54 @@ def show_overlay(sock):
     send_file_button = tk.Button(input_frame, text="Send File", command=send_file, bg="white", fg="black", font=("Arial", 12,"bold"))
     send_file_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
-    # Close button
-    close_button = tk.Button(overlay, text="✖", command=overlay.destroy, bg="red", fg="red", font=("Arial", 15))
+    # close button
+    close_button = tk.Button(overlay, text="✖", command=lambda: close_client(sock, overlay), bg="red", fg="red", font=("Arial", 15))
+
     close_button.place(x=840, y=10)
 
 def create_room(event=None):
     def run_server():
         start_server()
 
-    # Start the server in a new thread
+    # new thread
     threading.Thread(target=run_server, daemon=True).start()
 
-    # Connect client to the newly created server
+    # cleint connects
     sock = start_client()
     show_overlay(sock)
+def show_warn(chk):
+    overlay = tk.Frame(root, bg="grey")
+    overlay.place(x=200, y=150, relwidth=0.5, relheight=0.5)
+    txt=tk.Label(text=chk,font=("Arial",18,"bold"),bg="grey",fg="red")
+
+    txt.place(x=320,y=280)
+    def close():
+        txt.destroy()
+        overlay.destroy()
+
+
+    close_button = tk.Button(overlay, text="✖", command=close, bg="red", fg="red", font=("Arial", 15))
+    close_button.place(x=400, y=0)
+
+
+# to check ip is valid or not return bool
+def is_valid_ip(ip):
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 def join_room(event=None):
-    sock = start_client()
-    show_overlay(sock)
+    if(ip.get()=="Enter IP Address..." or not ip.get()):
+        show_warn("First Enter IP Address...")
+    else:
+        if(is_valid_ip(ip.get())):
+            sock = start_client()
+            if(sock!=-1):
+                show_overlay(sock)
+        else:
+            show_warn("Enter Valid IP Address...")
 
 #  Application UI -------->
 
@@ -177,7 +249,8 @@ root.geometry("900x600")
 root.configure(bg="black")
 root.minsize(width=900,height=600)
 root.maxsize(width=900,height=600)
-
+global ip
+ip=tk.StringVar()
 # widget
 canvas = tk.Canvas(root, width=900, height=600, bg="black")
 canvas.pack()
@@ -222,7 +295,19 @@ canvas.tag_bind(button_text1, "<Button-1>", create_room)
 
 canvas.tag_bind(button_rect2, "<Button-1>", join_room)
 canvas.tag_bind(button_text2, "<Button-1>", join_room)
+entry = tk.Entry(root, width=18 , font=("Arial", 18), bg="black", fg="white", insertbackground="white",highlightbackground="white",textvariable=ip)
+def on_focus_in(event):
+    if entry.get() == "Enter IP Address...":  # txt for placeholder
+        entry.delete(0, tk.END)
 
+
+# set placeholder text
+entry.insert(0, "Enter IP Address...")
+
+# <focusin> used when user type
+entry.bind("<FocusIn>", on_focus_in)
+
+entry.place(x=340, y=400) 
 # start animation
 animate()  
 root.mainloop()
