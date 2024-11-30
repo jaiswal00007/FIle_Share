@@ -54,10 +54,10 @@
     <h2>Screenshots</h2>
     <p>Below are some screenshots to help you understand the application interface:</p>
     <h3>1. Home Screen</h3>
-    <img src="0AC1B8A1-1A1D-4381-B5B8-8891DB3325D1_1_105_c.jpeg" alt="Home Screen" width="600">
+    <img src="0AC1B8A1-1A1D-4381-B5B8-8891DB3325D1_1_105_c.png" alt="Home Screen" width="600">
     <p>Description: The main dashboard where users can create or join a host.</p>
     <h3>2. Chat and File Sharing Interface</h3>
-    <img src="BA9B973A-A355-4A53-A6F2-EF3D60F7B6A4.png" alt="Chat and File Sharing Interface" width="600">
+    <img src="BA9B973A-A355-4A53-A6F2-EF3D60F7B6A4_1_105_c.png" alt="Chat and File Sharing Interface" width="600">
     <p>Description: Interface for real-time messaging and file sharing between connected users.</p>
     <h2>Technologies Used</h2>
     <ul>
