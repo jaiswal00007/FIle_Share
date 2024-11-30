@@ -194,7 +194,7 @@ def show_overlay(sock):
     # close button
     close_button = tk.Button(overlay, text="✖", command=lambda: close_client(sock, overlay), bg="red", fg="red", font=("Arial", 15))
 
-    close_button.place(x=840, y=10)
+    close_button.place(relx=0.99,rely=0.02, anchor="ne")
 
 def create_room(event=None):
     def run_server():
@@ -248,7 +248,7 @@ root.title("GetChat")
 root.geometry("900x600")
 root.configure(bg="black")
 root.minsize(width=900,height=600)
-root.maxsize(width=900,height=600)
+# root.maxsize(width=900,height=600)
 global ip
 ip=tk.StringVar()
 # widget
@@ -306,8 +306,8 @@ entry.insert(0, "Enter IP Address...")
 
 # <focusin> used when user type
 entry.bind("<FocusIn>", on_focus_in)
-
-entry.place(x=340, y=400) 
+entry.place(relx=0.5, rely=0.65, anchor="center")  
+# entry.place(x=340, y=400) 
 # start animation
 animate()  
 root.mainloop()
